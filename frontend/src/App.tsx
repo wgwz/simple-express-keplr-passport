@@ -12,9 +12,9 @@ declare global {
 function LoginForm(props: any) {
   const usernameEl = useRef<HTMLInputElement>(null);
   const passwordEl = useRef<HTMLInputElement>(null);
-  const [isLoggedIn, setLoggedIn] = useState(false);
   const [userHasKeplr, setUserHasKeplr] = useState(false);
-  const [currentUser, setCurrentUser] = useState({} as any);
+  const [isLoggedIn, setLoggedIn] = useState(JSON.parse(sessionStorage.getItem('loggedIn') as string));
+  const [currentUser, setCurrentUser] = useState(JSON.parse(sessionStorage.getItem('currentUser') as string));
 
   useEffect(() => {
      console.log('useEffect called');
@@ -35,6 +35,8 @@ function LoginForm(props: any) {
       if (login.status === 200) {
         setCurrentUser(login.data.user);
         setLoggedIn(true);
+        sessionStorage.setItem("currentUser", JSON.stringify(login.data.user));
+        sessionStorage.setItem("loggedIn", JSON.stringify(true));
       };
     } catch (err) {
       console.log(err);
@@ -54,6 +56,8 @@ function LoginForm(props: any) {
       if (logout.status === 200) {
         setCurrentUser({});
         setLoggedIn(false);
+        sessionStorage.removeItem("currentUser");
+        sessionStorage.removeItem("loggedIn");
       };
     } catch (err) {
       console.log(err);
@@ -110,6 +114,8 @@ function LoginForm(props: any) {
       if (login.status === 200) {
         setCurrentUser(login.data.user);
         setLoggedIn(true);
+        sessionStorage.setItem("currentUser", JSON.stringify(login.data.user));
+        sessionStorage.setItem("loggedIn", JSON.stringify(true));
       };
     } catch (err) {
       console.log(err);
@@ -119,8 +125,8 @@ function LoginForm(props: any) {
   if (isLoggedIn && currentUser) {
     return (
       <div>
-        <div>{currentUser.username}</div>
-        <div>{currentUser.address}</div>
+        <div>{currentUser!.username}</div>
+        <div>{currentUser!.address}</div>
         <button onClick={logoutHandler}>Logout</button>
       </div>
     )

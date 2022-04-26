@@ -31,7 +31,7 @@ app.use(cookieSession({
   name: 'session',
   keys: ['supersecrets'],
   maxAge: 24 * 60 * 60 * 1000, // 24 hours
-  sameSite: 'none',
+  sameSite: 'lax',
   secure: false,
 }));
 app.use(passport.initialize());

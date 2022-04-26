@@ -90,6 +90,15 @@ function LoginForm(props: any) {
     );
     window.keplr!.defaultOptions = defaultOptions;
     console.log(signature);
+    const obj = { key, signature };
+    try {
+      const login = await axios.post('http://localhost:3000/keplr-login', obj, {
+        withCredentials: true,
+      });
+      if (login.status === 200) { setLoggedIn(true) };
+    } catch (err) {
+      console.log(err);
+    }
   }
 
   if (isLoggedIn) {

@@ -8,6 +8,8 @@ const cookieSession = require('cookie-session');
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const cors = require('cors');
+const passportCustom = require('passport-custom');
+const CustomStrategy = passportCustom.Strategy;
 
 const app = express();
 
@@ -37,42 +39,67 @@ app.use(cors({
   credentials: true,
 }));
 
-const users = {
-  kyle: 'password',
-}
+const newUsers = [
+  {id: 1, username: 'kyle', password: 'password', address: 'regen1rn2mn8p0j3kqgglf7kpn8eshymgy5sm8w4wmj4'}
+];
 
-passport.serializeUser(function(username, done) {
-  done(null, username);
+passport.serializeUser(function(userId, done) {
+  // todo: it's possible that code in serialize/deserialize
+  // should be wrapped in process.nextTick (there's references
+  // to this in the passport.js docs, probably just performance
+  // related).
+  done(null, {userId: userId});
 });
-passport.deserializeUser(function(username, done) {
-  done(null, username);
+passport.deserializeUser(function(user, done) {
+  const { userId } = user;
+  for (const user of newUsers) {
+    if (user.id === userId) {
+      done(null, user);
+    }
+  }
 });
 passport.use(new LocalStrategy(
   function(username, password, done) {
     try {
-      if (username in users) {
-        if (users[username] == password) {
-          return done(null, username);
-        } else {
-          return done(null, false);
+      for (const user of newUsers) {
+        if (user.username == username && user.password == password) {
+          return done(null, user.id);
         }
-      } else {
-        return done(null, false);
       }
     } catch (err) {
       return done(err);
     }
+    return done(null, false);
   },
 ))
-
-app.use('/welcome', (req, res) => {
-  return res.send("Please sign in at /login");
-})
+passport.use("keplr", new CustomStrategy(
+  function (req, done) {
+    try {
+      for (const user of newUsers) {
+        if (req.body.key.bech32Address === user.address) {
+          console.log("REGEN ADDRESS USER MATCH");
+          // todo: signature verification...
+          return done(null, user.id);
+        }
+      }
+    } catch (err) {
+      return done(err);
+    }
+    return done(null, false);
+  }
+));
 
 app.use('/login',
   passport.authenticate('local'),
   (req, res) => {
-    return res.send("You have been signed in!");
+    return res.send("You have been signed in via username/password!");
+  }
+)
+
+app.use('/keplr-login',
+  passport.authenticate('keplr'),
+  (req, res) => {
+    return res.send("You have been signed in via keplr!");
   }
 )
 
@@ -84,7 +111,7 @@ app.post('/logout', function(req, res){
 app.get('/profile',
   (req, res) => {
     if (req.user) {
-      return res.send(`Hi, ${req.user}!`);
+      return res.send(`Hi, ${req.user.username}!`);
     } else {
       return res.status(401).send("Sorry, you haven't signed in yet..");
     }

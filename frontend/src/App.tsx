@@ -14,6 +14,7 @@ function LoginForm(props: any) {
   const passwordEl = useRef<HTMLInputElement>(null);
   const [isLoggedIn, setLoggedIn] = useState(false);
   const [userHasKeplr, setUserHasKeplr] = useState(false);
+  const [currentUser, setCurrentUser] = useState({} as any);
 
   useEffect(() => {
      console.log('useEffect called');
@@ -31,7 +32,10 @@ function LoginForm(props: any) {
       const login = await axios.post('http://localhost:3000/login', obj, {
         withCredentials: true,
       });
-      if (login.status === 200) { setLoggedIn(true) };
+      if (login.status === 200) {
+        setCurrentUser(login.data.user);
+        setLoggedIn(true);
+      };
     } catch (err) {
       console.log(err);
     }
@@ -39,10 +43,18 @@ function LoginForm(props: any) {
 
   const logoutHandler = async () => {
     try {
+      // todo: eventually an endpoint like this would need to
+      // return some identifying information about the user, so
+      // that the front-end knows who's authenticated. specifically,
+      // this is true in the scenario where a user is going through an
+      // email-based login (or this case username/password).
       const logout = await axios.post('http://localhost:3000/logout', null, {
         withCredentials: true,
       });
-      if (logout.status === 200) { setLoggedIn(false) };
+      if (logout.status === 200) {
+        setCurrentUser({});
+        setLoggedIn(false);
+      };
     } catch (err) {
       console.log(err);
     }
@@ -95,14 +107,23 @@ function LoginForm(props: any) {
       const login = await axios.post('http://localhost:3000/keplr-login', obj, {
         withCredentials: true,
       });
-      if (login.status === 200) { setLoggedIn(true) };
+      if (login.status === 200) {
+        setCurrentUser(login.data.user);
+        setLoggedIn(true);
+      };
     } catch (err) {
       console.log(err);
     }
   }
 
-  if (isLoggedIn) {
-    return <button onClick={logoutHandler}>Logout</button>
+  if (isLoggedIn && currentUser) {
+    return (
+      <div>
+        <div>{currentUser.username}</div>
+        <div>{currentUser.address}</div>
+        <button onClick={logoutHandler}>Logout</button>
+      </div>
+    )
   }
 
   if (userHasKeplr) {

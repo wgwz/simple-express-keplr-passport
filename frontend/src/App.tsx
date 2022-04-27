@@ -1,6 +1,6 @@
 import {useRef, useState, useEffect} from 'react';
 import './App.css';
-import axios from 'axios';
+import axios, {AxiosError} from 'axios';
 import { Window as KeplrWindow } from '@keplr-wallet/types';
 import { AminoMsg, makeSignDoc } from '@cosmjs/amino';
 
@@ -21,7 +21,25 @@ function LoginForm(props: any) {
      if (window.keplr) {
        setUserHasKeplr(true);
      }
-  }, []); 
+     const fetchAsync = async () => {
+       try {
+         // this is an example of how to make an authenticated request
+         // to the backend. withCredentials instructs axios to use the
+         // http-only cookie associated to this domain.
+         const resp = await axios.get('http://localhost:3000/profile', {
+           withCredentials: true,
+         });
+         console.log(resp);
+       } catch (err) {
+         if (err instanceof AxiosError) {
+           console.log(err.message);
+         } else {
+           console.log(err);
+         }
+       }
+     }
+     fetchAsync();
+  }, [isLoggedIn]); 
 
   const loginHandler = async () => {
     const obj = {

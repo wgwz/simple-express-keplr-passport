@@ -10,6 +10,8 @@ const LocalStrategy = require('passport-local').Strategy;
 const cors = require('cors');
 const passportCustom = require('passport-custom');
 const CustomStrategy = passportCustom.Strategy;
+const amino = require("@cosmjs/amino");
+const crypto = require("@cosmjs/crypto");
 
 const app = express();
 
@@ -89,13 +91,54 @@ passport.use(new LocalStrategy(
 ))
 
 passport.use("keplr", new CustomStrategy(
-  function (req, done) {
+  async function (req, done) {
+    const { key, signature: { signature, signed }} = req.body;
+    // step 1: convert signature pub key to address (unclear what this is for, is
+    // it more secure to extract the address this way? as opposed to key.bech32Address)
+    const generatedAddress = amino.pubkeyToAddress(signature.pub_key, "regen");
     try {
       for (const user of users) {
-        if (req.body.key.bech32Address === user.address) {
-          // note: i'm assuming 1-1 address-user correspondance for now..
-          // todo: signature verification...
-          return done(null, fetchUserById(user.id));
+        // assume 1-1 map between a given user and an address.
+        if (generatedAddress === user.address) {
+          // step 2: re-create the signDoc. i suppose this is a matter of trust. we know
+          // the address from the incoming signDoc, but know we want to replicate the signDoc
+          // in the backend server, probably to make sure that no tampering took place.
+          // 
+          // todo: this jsonTx prep and call to makeSignDoc would be shared code between
+          // the front-end and the back-end.
+          const jsonTx = {
+            type: 'cosmos-sdk/TextProposal',
+            value: {
+              title: "Regen Network Login Text Proposal",
+              description: 'This is a transaction that allows Regen Network to authenticate you with our application.',
+              // proposer: address,
+              // initial_deposit: [{ denom: 'stake', amount: '0' }]
+            }
+          };
+          const fee = {
+            gas: '1',
+            amount: [
+              { denom: 'regen', amount: '0' }
+            ]
+          };
+          const generatedSignDoc = amino.makeSignDoc([jsonTx], fee, 'regen-1', 'Regen Network Login Memo', '0', '0');
+          // step 3: make sure the incoming signDoc, and the one that we created above are
+          // a match. if not, the user should not be authenticated.
+          if (amino.serializeSignDoc(signed).toString() == amino.serializeSignDoc(generatedSignDoc).toString()) {
+            // step 4: given the decoded pubkey and signature from the incoming signDoc, verify that
+            // the generated signDoc from above was indeed signed by originating key.
+            const { pubkey, signature: decodedSig } = amino.decodeSignature(signature);
+            const secpSignature = crypto.Secp256k1Signature.fromFixedLength(decodedSig);
+            const messageHash = new crypto.Sha256(amino.serializeSignDoc(generatedSignDoc)).digest();
+            const isValid = await crypto.Secp256k1.verifySignature(secpSignature, messageHash, pubkey);
+            if (isValid) {
+              return done(null, fetchUserById(user.id));
+            } else {
+              return done(null, false);
+            }
+          } else {
+            return done(null, false);
+          }
         }
       }
     } catch (err) {

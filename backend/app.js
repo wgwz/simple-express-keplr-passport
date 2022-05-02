@@ -104,9 +104,9 @@ passport.use("keplr", new CustomStrategy(
           // the address from the incoming signDoc, but know we want to replicate the signDoc
           // in the backend server, probably to make sure that no tampering took place.
           // 
-          // todo: this jsonTx prep and call to makeSignDoc would be shared code between
+          // todo: this aminoMsg prep and call to makeSignDoc would be shared code between
           // the front-end and the back-end.
-          const jsonTx = {
+          const aminoMsg = {
             type: 'cosmos-sdk/TextProposal',
             value: {
               title: "Regen Network Login Text Proposal",
@@ -121,7 +121,7 @@ passport.use("keplr", new CustomStrategy(
               { denom: 'regen', amount: '0' }
             ]
           };
-          const generatedSignDoc = amino.makeSignDoc([jsonTx], fee, 'regen-1', 'Regen Network Login Memo', '0', '0');
+          const generatedSignDoc = amino.makeSignDoc([aminoMsg], fee, 'regen-1', 'Regen Network Login Memo', '0', '0');
           // step 3: make sure the incoming signDoc, and the one that we created above are
           // a match. if not, the user should not be authenticated.
           if (amino.serializeSignDoc(signed).toString() == amino.serializeSignDoc(generatedSignDoc).toString()) {

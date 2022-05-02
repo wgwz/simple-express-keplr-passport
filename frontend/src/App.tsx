@@ -92,7 +92,7 @@ function LoginForm(props: any) {
     }
     const key = await window.keplr!.getKey('regen-1');
     console.log(key);
-    const jsonTx: AminoMsg = {
+    const aminoMsg: AminoMsg = {
       type: 'cosmos-sdk/TextProposal',
       value: {
         title: "Regen Network Login Text Proposal",
@@ -107,7 +107,7 @@ function LoginForm(props: any) {
         { denom: 'regen', amount: '0' }
       ]
     };
-    const signDoc = makeSignDoc([jsonTx], fee, 'regen-1', 'Regen Network Login Memo', '0', '0');
+    const signDoc = makeSignDoc([aminoMsg], fee, 'regen-1', 'Regen Network Login Memo', '0', '0');
     console.log(signDoc);
     const defaultOptions = window.keplr!.defaultOptions;
     window.keplr!.defaultOptions = {

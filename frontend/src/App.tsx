@@ -92,11 +92,19 @@ function LoginForm(props: any) {
     }
     const key = await window.keplr!.getKey('regen-1');
     console.log(key);
+    const userAddress = key.bech32Address;
+    console.log(userAddress);
+    // get the current nonce for a given user...
+    const { data: { nonce } } = await axios.get('http://localhost:3000/nonce', {
+      params: { userAddress },
+    });
+    console.log('nonce before aminoMsg', nonce);
     const aminoMsg: AminoMsg = {
       type: 'cosmos-sdk/TextProposal',
       value: {
         title: "Regen Network Login Text Proposal",
         description: 'This is a transaction that allows Regen Network to authenticate you with our application.',
+        nonce: nonce,
         // proposer: address,
         // initial_deposit: [{ denom: 'stake', amount: '0' }]
       }

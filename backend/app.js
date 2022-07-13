@@ -12,6 +12,7 @@ const passportCustom = require('passport-custom');
 const CustomStrategy = passportCustom.Strategy;
 const amino = require("@cosmjs/amino");
 const crypto = require("@cosmjs/crypto");
+const { Buffer } = require('node:buffer');
 
 const app = express();
 
@@ -43,13 +44,27 @@ app.use(cors({
   credentials: true,
 }));
 
+const genNonce = () => {
+  const bytes = crypto.Random.getBytes(128);
+  const hex = Buffer.from(bytes).toString('hex');
+  console.log(hex);
+  return hex;
+}
+
 const users = [
-  {id: 1, username: 'kyle', password: 'password', address: 'regen1rn2mn8p0j3kqgglf7kpn8eshymgy5sm8w4wmj4'}
+  {id: 1, username: 'kyle', password: 'password', address: 'regen1rn2mn8p0j3kqgglf7kpn8eshymgy5sm8w4wmj4', nonce: genNonce()}
 ];
 const fetchUserById = (userId) => {
   for (const user of users) {
     if (user.id === userId) {
-      return { id: user.id, username: user.username, address: user.address } ;
+      return { id: user.id, username: user.username, address: user.address, nonce: user.nonce } ;
+    }
+  }
+}
+const fetchUserByAddress = (userAddress) => {
+  for (const user of users) {
+    if (user.address === userAddress) {
+      return { id: user.id, username: user.username, address: user.address, nonce: user.nonce } ;
     }
   }
 }
@@ -106,15 +121,20 @@ passport.use("keplr", new CustomStrategy(
           // 
           // todo: this aminoMsg prep and call to makeSignDoc would be shared code between
           // the front-end and the back-end.
+          console.log("nonce before aminoMsg:", user.nonce);
           const aminoMsg = {
             type: 'cosmos-sdk/TextProposal',
             value: {
               title: "Regen Network Login Text Proposal",
               description: 'This is a transaction that allows Regen Network to authenticate you with our application.',
+              nonce: user.nonce,
               // proposer: address,
               // initial_deposit: [{ denom: 'stake', amount: '0' }]
             }
           };
+          // generate a new nonce for the user to invalidate the current
+          // signature...
+          user.nonce = genNonce();
           const fee = {
             gas: '1',
             amount: [
@@ -185,6 +205,34 @@ app.get('/profile',
     }
   }
 )
+
+app.get('/nonce', (req, res, next) => {
+  // this endpoint fetches a nonce for a given user by their wallet
+  // address. this is a piece of public information so it is ok to
+  // have this public.
+  //
+  // note that is PoC does not include a way of adding new users, but
+  // if you do want to add new users you can manually add to the users
+  // list and restart the express app.
+  if (!req.query.userAddress) {
+    const msg = "Invalid or missing userAddress query parameter";
+    console.error(msg);
+    const err = new Error(msg);
+    err.status = 400;
+    next(err);
+  } else {
+    const userInfo = fetchUserByAddress(req.query.userAddress);
+    if (!userInfo) {
+      const msg = "User not found for the given address";
+      console.error(msg);
+      const err = new Error(msg);
+      err.status = 404;
+      next(err);
+    } else {
+      return res.status(200).send({ nonce: userInfo.nonce }); 
+    }
+  }
+})
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

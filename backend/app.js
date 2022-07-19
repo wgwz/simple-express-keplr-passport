@@ -13,6 +13,7 @@ const CustomStrategy = passportCustom.Strategy;
 const amino = require("@cosmjs/amino");
 const crypto = require("@cosmjs/crypto");
 const { Buffer } = require('node:buffer');
+const { verifyADR36Amino } = require('@keplr-wallet/cosmos');
 
 const app = express();
 
@@ -47,7 +48,6 @@ app.use(cors({
 const genNonce = () => {
   const bytes = crypto.Random.getBytes(128);
   const hex = Buffer.from(bytes).toString('hex');
-  console.log(hex);
   return hex;
 }
 
@@ -107,55 +107,25 @@ passport.use(new LocalStrategy(
 
 passport.use("keplr", new CustomStrategy(
   async function (req, done) {
-    const { key, signature: { signature, signed }} = req.body;
-    // step 1: convert signature pub key to address (unclear what this is for, is
-    // it more secure to extract the address this way? as opposed to key.bech32Address)
-    const generatedAddress = amino.pubkeyToAddress(signature.pub_key, "regen");
+    const { signature } = req.body;
+    const address = amino.pubkeyToAddress(signature.pub_key, "regen");
     try {
       for (const user of users) {
         // assume 1-1 map between a given user and an address.
-        if (generatedAddress === user.address) {
-          // step 2: re-create the signDoc. i suppose this is a matter of trust. we know
-          // the address from the incoming signDoc, but know we want to replicate the signDoc
-          // in the backend server, probably to make sure that no tampering took place.
-          // 
-          // todo: this aminoMsg prep and call to makeSignDoc would be shared code between
-          // the front-end and the back-end.
-          console.log("nonce before aminoMsg:", user.nonce);
-          const aminoMsg = {
-            type: 'cosmos-sdk/TextProposal',
-            value: {
-              title: "Regen Network Login Text Proposal",
-              description: 'This is a transaction that allows Regen Network to authenticate you with our application.',
-              nonce: user.nonce,
-              // proposer: address,
-              // initial_deposit: [{ denom: 'stake', amount: '0' }]
-            }
-          };
-          // generate a new nonce for the user to invalidate the current
-          // signature...
-          user.nonce = genNonce();
-          const fee = {
-            gas: '1',
-            amount: [
-              { denom: 'regen', amount: '0' }
-            ]
-          };
-          const generatedSignDoc = amino.makeSignDoc([aminoMsg], fee, 'regen-1', 'Regen Network Login Memo', '0', '0');
-          // step 3: make sure the incoming signDoc, and the one that we created above are
-          // a match. if not, the user should not be authenticated.
-          if (amino.serializeSignDoc(signed).toString() == amino.serializeSignDoc(generatedSignDoc).toString()) {
-            // step 4: given the decoded pubkey and signature from the incoming signDoc, verify that
-            // the generated signDoc from above was indeed signed by originating key.
-            const { pubkey, signature: decodedSig } = amino.decodeSignature(signature);
-            const secpSignature = crypto.Secp256k1Signature.fromFixedLength(decodedSig);
-            const messageHash = new crypto.Sha256(amino.serializeSignDoc(generatedSignDoc)).digest();
-            const isValid = await crypto.Secp256k1.verifySignature(secpSignature, messageHash, pubkey);
-            if (isValid) {
-              return done(null, fetchUserById(user.id));
-            } else {
-              return done(null, false);
-            }
+        if (address === user.address) {
+          const { pubkey: decodedPubKey, signature: decodedSignature } = amino.decodeSignature(signature);
+          const data = JSON.stringify({
+            title: 'Regen Network Login',
+            description: 'This is a transaction that allows Regen Network to authenticate you with our application.',
+            nonce: user.nonce
+          });
+          // https://github.com/chainapsis/keplr-wallet/blob/master/packages/cosmos/src/adr-36/amino.ts
+          const verified = verifyADR36Amino("regen", address, data, decodedPubKey, decodedSignature);
+          if (verified) {
+            // generate a new nonce for the user to invalidate the current
+            // signature...
+            user.nonce = genNonce();
+            return done(null, fetchUserById(user.id));
           } else {
             return done(null, false);
           }

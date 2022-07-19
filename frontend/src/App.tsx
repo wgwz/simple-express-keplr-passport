@@ -2,7 +2,6 @@ import {useRef, useState, useEffect} from 'react';
 import './App.css';
 import axios, {AxiosError} from 'axios';
 import { Window as KeplrWindow } from '@keplr-wallet/types';
-import { AminoMsg, makeSignDoc } from '@cosmjs/amino';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-empty-interface
@@ -83,58 +82,28 @@ function LoginForm(props: any) {
   }
 
   const keplrHandler = async () => {
-    console.log('keplr button clicked');
     try {
-      const enable = await window.keplr!.enable('regen-1');
-      console.log(enable);
+      await window.keplr!.enable('regen-1');
     } catch (err) {
       console.log(err);
     }
     const key = await window.keplr!.getKey('regen-1');
-    console.log(key);
     const userAddress = key.bech32Address;
-    console.log(userAddress);
     // get the current nonce for a given user...
     const { data: { nonce } } = await axios.get('http://localhost:3000/nonce', {
       params: { userAddress },
     });
-    console.log('nonce before aminoMsg', nonce);
-    const aminoMsg: AminoMsg = {
-      type: 'cosmos-sdk/TextProposal',
-      value: {
-        title: "Regen Network Login Text Proposal",
-        description: 'This is a transaction that allows Regen Network to authenticate you with our application.',
-        nonce: nonce,
-        // proposer: address,
-        // initial_deposit: [{ denom: 'stake', amount: '0' }]
-      }
-    };
-    const fee = {
-      gas: '1',
-      amount: [
-        { denom: 'regen', amount: '0' }
-      ]
-    };
-    const signDoc = makeSignDoc([aminoMsg], fee, 'regen-1', 'Regen Network Login Memo', '0', '0');
-    console.log(signDoc);
-    const defaultOptions = window.keplr!.defaultOptions;
-    window.keplr!.defaultOptions = {
-      sign: {
-        preferNoSetFee: true,
-        preferNoSetMemo: true,
-        disableBalanceCheck: true,
-      }
-    };
-    const signature = await window.keplr!.signAmino(
+    const signature = await window.keplr!.signArbitrary(
       "regen-1",
       key.bech32Address,
-      signDoc
+      JSON.stringify({
+        title: 'Regen Network Login',
+        description: 'This is a transaction that allows Regen Network to authenticate you with our application.',
+        nonce: nonce,
+      })
     );
-    window.keplr!.defaultOptions = defaultOptions;
-    console.log(signature);
-    const obj = { key, signature };
     try {
-      const login = await axios.post('http://localhost:3000/keplr-login', obj, {
+      const login = await axios.post('http://localhost:3000/keplr-login', { signature }, {
         withCredentials: true,
       });
       if (login.status === 200) {

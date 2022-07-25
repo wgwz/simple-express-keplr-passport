@@ -119,12 +119,12 @@ passport.use("keplr", new CustomStrategy(
             description: 'This is a transaction that allows Regen Network to authenticate you with our application.',
             nonce: user.nonce
           });
+          // generate a new nonce for the user to invalidate the current
+          // signature...
+          user.nonce = genNonce();
           // https://github.com/chainapsis/keplr-wallet/blob/master/packages/cosmos/src/adr-36/amino.ts
           const verified = verifyADR36Amino("regen", address, data, decodedPubKey, decodedSignature);
           if (verified) {
-            // generate a new nonce for the user to invalidate the current
-            // signature...
-            user.nonce = genNonce();
             return done(null, fetchUserById(user.id));
           } else {
             return done(null, false);

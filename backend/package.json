@@ -8,6 +8,7 @@
   "dependencies": {
     "@cosmjs/amino": "^0.28.4",
     "@cosmjs/crypto": "^0.28.4",
+    "@keplr-wallet/cosmos": "^0.10.13",
     "cookie-parser": "~1.4.4",
     "cookie-session": "^2.0.0",
     "cors": "^2.8.5",
